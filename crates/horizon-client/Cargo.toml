@@ -9,6 +9,7 @@ description = "Horizon native development client"
 
 [dependencies]
 horizon-assets = { path = "../horizon-assets" }
+rustanim = { git = "https://github.com/np4abdou1/rustanim.git" }
 horizon-client-core = { path = "../horizon-client-core" }
 horizon-client-input = { path = "../horizon-client-input" }
 horizon-client-render = { path = "../horizon-client-render" }

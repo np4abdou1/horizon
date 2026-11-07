@@ -852,6 +852,7 @@ pub fn setup(
             humanoid(p, s, &h);
             if player {
                 player_model_visibility(p, m.extra.hidden_model_parts, m.extra.spectator);
+                apply_rustanim_player(p, s, &h, m);
             }
             if m.ai.aggressive && !bow {
                 // SkeletonModel melee pose.
@@ -965,6 +966,55 @@ fn player_model_visibility(p: &mut Poses, hidden: u8, spectator: bool) {
         (6, "hat"),
     ] {
         p.visible(part, hidden & (1 << bit) == 0);
+    }
+}
+
+/// Applies Bedrock Actions & Stuff relative kinematics to the player model
+fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, _m: &Mob) {
+    let speed = s.speed;
+    let is_moving = speed > 0.05;
+    let is_sprinting = speed > 0.8;
+    let swing = s.swing;
+
+    let anim_time = s.age * 0.05;
+    let walk_cycle = (s.pos * 0.6662).msin();
+    let walk_cycle_cos = (s.pos * 0.6662).mcos();
+
+    if is_moving {
+        let leg_sway = if is_sprinting { 1.3 } else { 0.9 };
+        let arm_sway = if is_sprinting { 1.2 } else { 0.7 };
+
+        // Bedrock Actions & Stuff signature waist tilt & dynamic limb curves
+        p.get("body")[4] = walk_cycle * 0.08 * speed.min(1.0);
+        p.get("body")[5] = walk_cycle_cos * 0.04 * speed.min(1.0);
+
+        // Legs with natural relative joint angles
+        p.xrot("right_leg", walk_cycle * leg_sway * speed.min(1.0));
+        p.xrot("left_leg", -walk_cycle * leg_sway * speed.min(1.0));
+
+        // Arms with fluid secondary swing
+        if swing == 0.0 {
+            p.xrot("right_arm", -walk_cycle * arm_sway * speed.min(1.0));
+            p.xrot("left_arm", walk_cycle * arm_sway * speed.min(1.0));
+            p.zrot("right_arm", 0.08 + (walk_cycle.abs() * 0.05));
+            p.zrot("left_arm", -0.08 - (walk_cycle.abs() * 0.05));
+        }
+    } else {
+        // Idle breathing and head sway from Actions & Stuff
+        let breath = (anim_time * 2.0).msin() * 0.02;
+        p.get("body")[1] = breath * 2.0;
+        p.get("right_arm")[5] = 0.05 + breath;
+        p.get("left_arm")[5] = -0.05 - breath;
+    }
+
+    // Dynamic attack swing arc with fluid curve
+    if swing > 0.0 {
+        let swing_curve = (swing * std::f32::consts::PI).msin();
+        let swing_power = ((1.0 - (1.0 - swing) * (1.0 - swing)) * std::f32::consts::PI).msin();
+        let arm = if h.swing_right_arm.unwrap_or(true) { "right_arm" } else { "left_arm" };
+        p.xrot(arm, -1.6 + swing_curve * 2.2 - swing_power * 0.6);
+        p.yrot(arm, swing_curve * 0.8);
+        p.zrot(arm, -swing_curve * 0.4);
     }
 }
 #[cfg(test)]
