@@ -970,52 +970,98 @@ fn player_model_visibility(p: &mut Poses, hidden: u8, spectator: bool) {
 }
 
 /// Applies Bedrock Actions & Stuff relative kinematics to the player model
-fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, _m: &Mob) {
-    let speed = s.speed;
-    let is_moving = speed > 0.05;
-    let is_sprinting = speed > 0.8;
-    let swing = s.swing;
+fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
+    let is_holding_main = m.extra.main_hand.is_some() || h.right != ArmPose::Empty;
+    let is_holding_off = m.extra.off_hand.is_some() || h.left != ArmPose::Empty;
+    let is_swing_right = h.swing_right_arm.unwrap_or(!h.left_main);
 
-    let anim_time = s.age * 0.05;
-    let walk_cycle = (s.pos * 0.6662).msin();
-    let walk_cycle_cos = (s.pos * 0.6662).mcos();
+    let anim_input = rustanim::PlayerAnimInput {
+        age: s.age,
+        pos: s.pos,
+        speed: s.speed,
+        head_pitch_deg: s.x_rot,
+        head_yaw_deg: s.y_rot,
+        swing: s.swing,
+        is_crouching: h.crouching,
+        is_holding_main,
+        is_holding_off,
+        is_swing_right,
+        is_fall_flying: h.fall_flying,
+    };
 
-    if is_moving {
-        let leg_sway = if is_sprinting { 1.3 } else { 0.9 };
-        let arm_sway = if is_sprinting { 1.2 } else { 0.7 };
+    let result = rustanim::PlayerPoseResult::evaluate(&anim_input);
 
-        // Bedrock Actions & Stuff signature waist tilt & dynamic limb curves
-        p.get("body")[4] = walk_cycle * 0.08 * speed.min(1.0);
-        p.get("body")[5] = walk_cycle_cos * 0.04 * speed.min(1.0);
+    // Apply evaluated kinematics to Horizon model part poses
+    let body = p.get("body");
+    body[0] = result.body.translation[0];
+    body[1] = result.body.translation[1];
+    body[2] = result.body.translation[2];
+    body[3] = result.body.rotation[0];
+    body[4] = result.body.rotation[1];
+    body[5] = result.body.rotation[2];
 
-        // Legs with natural relative joint angles
-        p.xrot("right_leg", walk_cycle * leg_sway * speed.min(1.0));
-        p.xrot("left_leg", -walk_cycle * leg_sway * speed.min(1.0));
+    let head = p.get("head");
+    head[0] = result.head.translation[0];
+    head[1] = result.head.translation[1];
+    head[2] = result.head.translation[2];
+    head[3] = result.head.rotation[0];
+    head[4] = result.head.rotation[1];
+    head[5] = result.head.rotation[2];
 
-        // Arms with fluid secondary swing
-        if swing == 0.0 {
-            p.xrot("right_arm", -walk_cycle * arm_sway * speed.min(1.0));
-            p.xrot("left_arm", walk_cycle * arm_sway * speed.min(1.0));
-            p.zrot("right_arm", 0.08 + (walk_cycle.abs() * 0.05));
-            p.zrot("left_arm", -0.08 - (walk_cycle.abs() * 0.05));
-        }
-    } else {
-        // Idle breathing and head sway from Actions & Stuff
-        let breath = (anim_time * 2.0).msin() * 0.02;
-        p.get("body")[1] = breath * 2.0;
-        p.get("right_arm")[5] = 0.05 + breath;
-        p.get("left_arm")[5] = -0.05 - breath;
+    // Right arm
+    let right_arm = p.get("right_arm");
+    right_arm[0] = result.right_arm.translation[0];
+    right_arm[1] = result.right_arm.translation[1];
+    right_arm[2] = result.right_arm.translation[2];
+    // Keep specialized weapon poses if active (bow, crossbow, blocking, trident)
+    if !matches!(
+        h.right,
+        ArmPose::Bow
+            | ArmPose::CrossbowCharge
+            | ArmPose::CrossbowHold
+            | ArmPose::ThrowTrident
+            | ArmPose::Block
+    ) {
+        right_arm[3] = result.right_arm.rotation[0];
+        right_arm[4] = result.right_arm.rotation[1];
+        right_arm[5] = result.right_arm.rotation[2];
     }
 
-    // Dynamic attack swing arc with fluid curve
-    if swing > 0.0 {
-        let swing_curve = (swing * std::f32::consts::PI).msin();
-        let swing_power = ((1.0 - (1.0 - swing) * (1.0 - swing)) * std::f32::consts::PI).msin();
-        let arm = if h.swing_right_arm.unwrap_or(true) { "right_arm" } else { "left_arm" };
-        p.xrot(arm, -1.6 + swing_curve * 2.2 - swing_power * 0.6);
-        p.yrot(arm, swing_curve * 0.8);
-        p.zrot(arm, -swing_curve * 0.4);
+    // Left arm
+    let left_arm = p.get("left_arm");
+    left_arm[0] = result.left_arm.translation[0];
+    left_arm[1] = result.left_arm.translation[1];
+    left_arm[2] = result.left_arm.translation[2];
+    if !matches!(
+        h.left,
+        ArmPose::Bow
+            | ArmPose::CrossbowCharge
+            | ArmPose::CrossbowHold
+            | ArmPose::ThrowTrident
+            | ArmPose::Block
+    ) {
+        left_arm[3] = result.left_arm.rotation[0];
+        left_arm[4] = result.left_arm.rotation[1];
+        left_arm[5] = result.left_arm.rotation[2];
     }
+
+    // Right leg
+    let right_leg = p.get("right_leg");
+    right_leg[0] = result.right_leg.translation[0];
+    right_leg[1] = result.right_leg.translation[1];
+    right_leg[2] = result.right_leg.translation[2];
+    right_leg[3] = result.right_leg.rotation[0];
+    right_leg[4] = result.right_leg.rotation[1];
+    right_leg[5] = result.right_leg.rotation[2];
+
+    // Left leg
+    let left_leg = p.get("left_leg");
+    left_leg[0] = result.left_leg.translation[0];
+    left_leg[1] = result.left_leg.translation[1];
+    left_leg[2] = result.left_leg.translation[2];
+    left_leg[3] = result.left_leg.rotation[0];
+    left_leg[4] = result.left_leg.rotation[1];
+    left_leg[5] = result.left_leg.rotation[2];
 }
 #[cfg(test)]
 mod flight_pose_tests {
