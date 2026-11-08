@@ -11839,9 +11839,22 @@ impl Game<'_> {
         let view = horizon_client::camera::view_matrix(self.yaw, self.pitch);
         // The hand sway: both hands turn by a tenth of the bobs' lag.
         let [sway_x, sway_y] = self.sway.rotation(a, self.pitch, self.yaw);
+        let fp_time = self.player_model.as_ref().map_or(0.0, |m| m.age as f32 + a) * 0.05;
+        let fp_breath = (fp_time * 2.2).sin();
+        let fp_walk_pos = self.player_model.as_ref().map_or(0.0, |m| m.limb_position);
+        let fp_walk_speed = self.player_model.as_ref().map_or(0.0, |m| m.limb_speed).min(1.0);
+        let fp_phi = fp_walk_pos * 0.6662;
+        let fp_bob_y = fp_breath * 0.006 + ((fp_phi * 2.0).sin() * 0.012) * fp_walk_speed;
+        let fp_bob_x = ((fp_phi + 0.7).cos() * 0.008) * fp_walk_speed;
+        let fp_tilt_z = (fp_phi.cos() * 1.2) * fp_walk_speed;
+        let fp_tilt_x = fp_breath * 0.35 + (fp_walk_speed * 1.2);
+
         let to_world = view.inverse()
             * glam::Mat4::from_rotation_x(sway_x.to_radians())
-            * glam::Mat4::from_rotation_y(sway_y.to_radians());
+            * glam::Mat4::from_rotation_y(sway_y.to_radians())
+            * glam::Mat4::from_translation(glam::Vec3::new(fp_bob_x, -fp_bob_y, 0.0))
+            * glam::Mat4::from_rotation_x(fp_tilt_x.to_radians())
+            * glam::Mat4::from_rotation_z(fp_tilt_z.to_radians());
         let eye = self.eye_position().unwrap_or_default();
         let light = self.world.light(
             eye[0].floor() as i32,

@@ -485,6 +485,7 @@ impl Game<'_> {
         // The worn stacks, for the elytra's glint (`WingsLayer`).
         m.extra.armor = armor;
         m.extra.crouching = crouching;
+        m.extra.sprinting = p.sprinting;
         // Guests and server players take their pose from DATA_POSE, not here.
         m.extra.avatar_pose = pose;
         m.extra.passenger = riding;

@@ -766,7 +766,8 @@ pub fn setup(
         }
         Anim::Skeleton | Anim::Humanoid { zombie_arms: false } => {
             let bow = m.extra.main_hand.as_deref() == Some("minecraft:bow");
-            let player = matches!(m.kind.anim, Anim::Humanoid { .. });
+            let player = matches!(m.kind.anim, Anim::Humanoid { .. })
+                || matches!(&*m.kind.id, "minecraft:player" | "minecraft:mannequin");
             let right = if bow && m.ai.aggressive {
                 ArmPose::Bow
             } else if player && m.extra.main_hand.is_some() {
@@ -971,14 +972,20 @@ fn player_model_visibility(p: &mut Poses, hidden: u8, spectator: bool) {
 
 /// Applies Bedrock Actions & Stuff relative kinematics to the player model
 fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
+    static RUSTANIM_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if !RUSTANIM_LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        log::info!(">>> RUSTANIM: Actions & Stuff kinematics active for player!");
+    }
+
     let is_holding_main = m.extra.main_hand.is_some() || h.right != ArmPose::Empty;
     let is_holding_off = m.extra.off_hand.is_some() || h.left != ArmPose::Empty;
     let is_swing_right = h.swing_right_arm.unwrap_or(!h.left_main);
+    let is_sprinting = m.extra.sprinting || s.speed > 0.85;
 
     let anim_input = rustanim::PlayerAnimInput {
         age: s.age,
         pos: s.pos,
-        speed: s.speed,
+        speed: if is_sprinting { 1.2 } else { s.speed },
         head_pitch_deg: s.x_rot,
         head_yaw_deg: s.y_rot,
         swing: s.swing,
