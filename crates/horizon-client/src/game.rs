@@ -12020,18 +12020,19 @@ impl Game<'_> {
                 eye[1].floor() as i32,
                 eye[2].floor() as i32,
             );
-            if &*stack.item == "minecraft:axolotl_bucket" {
+            let cfg = rustanim::get_live_config();
+            let m = if cfg.enabled && cfg.first_person {
                 let age = self.player_model.as_ref().map_or(0.0, |m| m.age as f32 + a);
-                horizon_client::mobs::render::render_3d_axolotl_bucket(
-                    m * glam::Mat4::from_translation(glam::Vec3::new(0.0, -0.22, 0.12))
-                        * glam::Mat4::from_rotation_y(-0.4)
-                        * glam::Mat4::from_scale(glam::Vec3::splat(1.15)),
-                    horizon_client::block_entity_render::vertex_light(light),
-                    age,
-                    &mut out,
-                );
-                continue;
-            }
+                let bob_y = (age * 2.0).sin() * 0.005 * cfg.fp_bob_mult;
+                let sway_x = (age * 1.0).cos() * 0.005 * cfg.fp_sway_mult;
+                m * glam::Mat4::from_translation(glam::Vec3::new(
+                    cfg.fp_offset_x + sway_x,
+                    cfg.fp_offset_y + bob_y,
+                    cfg.fp_offset_z,
+                ))
+            } else {
+                m
+            };
             let state = self.resolve_item(&stack, context, Some(&owner), seed);
             self.submit_item_world(
                 &state,

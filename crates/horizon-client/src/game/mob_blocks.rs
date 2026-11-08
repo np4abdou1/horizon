@@ -474,16 +474,6 @@ impl Game<'_> {
             };
             // `updateForLiving`: seeded by the entity id plus the context ordinal.
             let seed = mob.id as i32 + ordinal;
-            if &**item == "minecraft:axolotl_bucket" {
-                let age = mob.age as f32 + alpha as f32;
-                render::render_3d_axolotl_bucket(
-                    t * glam::Mat4::from_translation(glam::Vec3::new(0.0, -0.15, 0.05)),
-                    light,
-                    age,
-                    out,
-                );
-                continue;
-            }
             let state = self.resolve_item(&stack, context, Some(&owner), seed);
             if lit {
                 self.submit_item_world(&state, t, light, out);

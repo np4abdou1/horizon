@@ -973,9 +973,13 @@ fn player_model_visibility(p: &mut Poses, hidden: u8, spectator: bool) {
 
 /// Applies Bedrock Actions & Stuff relative kinematics to the player model
 fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
+    let cfg = rustanim::get_live_config();
+    if !cfg.enabled || !cfg.player_animations {
+        return;
+    }
     static RUSTANIM_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if !RUSTANIM_LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-        log::info!(">>> RUSTANIM: Actions & Stuff kinematics active for player!");
+        log::info!(">>> RUSTANIM: Actions & Stuff kinematics active for player! (Live hot-reload enabled)");
     }
 
     let is_holding_main = m.extra.main_hand.is_some() || h.right != ArmPose::Empty;
@@ -1101,6 +1105,10 @@ pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
     {
         return;
     }
+    let cfg = rustanim::get_live_config();
+    if !cfg.enabled || !cfg.mob_animations {
+        return;
+    }
     let phi = s.pos * 0.6662;
     let sp = s.speed.min(1.0);
     let age = s.age;
@@ -1112,10 +1120,10 @@ pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
         | Anim::ZombifiedPiglin
         | Anim::Humanoid { zombie_arms: true } => {
             // Authentic Actions & Stuff shambling zombie walk:
-            let sway = (phi * 0.5).sin() * 0.12 * sp;
+            let sway = (phi * 0.5).sin() * 0.12 * sp * cfg.mob_zombie_sway;
             let droop = (age * 0.08).sin() * 0.05;
             p.zrot("body", sway);
-            p.xrot("body", 0.15 * sp); // hunched shamble
+            p.xrot("body", 0.15 * sp * cfg.mob_zombie_sway); // hunched shamble
             p.zrot("head", -sway * 0.8);
             p.xrot("right_arm", -1.45 + (phi).cos() * 0.25 * sp + droop);
             p.xrot("left_arm", -1.45 - (phi).cos() * 0.25 * sp - droop);
@@ -1132,7 +1140,7 @@ pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
             // Menacing creeping scuttle
             p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).cos() * 0.08 * sp);
             p.yrot("head", s.y_rot.to_radians() + (phi).sin() * 0.12 * sp);
-            p.zrot("body", (phi).sin() * 0.04 * sp);
+            p.zrot("body", (phi).sin() * 0.04 * sp * cfg.mob_creeper_sway);
             p.xrot("right_hind_leg", (phi).cos() * 1.2 * sp);
             p.xrot("left_hind_leg", -(phi).cos() * 1.2 * sp);
             p.xrot("right_front_leg", -(phi).cos() * 1.2 * sp);
@@ -1140,7 +1148,7 @@ pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
         }
         Anim::Quadruped | Anim::PolarBear | Anim::Panda | Anim::Goat => {
             // Bouncy expressive animal trot
-            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp;
+            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp * cfg.mob_quadruped_stride;
             p.xrot("body", (phi * 2.0).cos() * 0.08 * sp);
             p.zrot("body", (phi).sin() * 0.06 * sp);
             p.get("body")[1] += -bounce * 1.5;
