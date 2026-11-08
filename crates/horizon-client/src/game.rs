@@ -12015,12 +12015,24 @@ impl Game<'_> {
                     4,
                 )
             };
-            let state = self.resolve_item(&stack, context, Some(&owner), seed);
             let light = self.world.light(
                 eye[0].floor() as i32,
                 eye[1].floor() as i32,
                 eye[2].floor() as i32,
             );
+            if &*stack.item == "minecraft:axolotl_bucket" {
+                let age = self.player_model.as_ref().map_or(0.0, |m| m.age as f32 + a);
+                horizon_client::mobs::render::render_3d_axolotl_bucket(
+                    m * glam::Mat4::from_translation(glam::Vec3::new(0.0, -0.22, 0.12))
+                        * glam::Mat4::from_rotation_y(-0.4)
+                        * glam::Mat4::from_scale(glam::Vec3::splat(1.15)),
+                    horizon_client::block_entity_render::vertex_light(light),
+                    age,
+                    &mut out,
+                );
+                continue;
+            }
+            let state = self.resolve_item(&stack, context, Some(&owner), seed);
             self.submit_item_world(
                 &state,
                 m,

@@ -950,6 +950,7 @@ pub fn setup(
             }
         }
     }
+    apply_rustanim_mob(m, s, p);
 }
 
 /// `PlayerModel.setupAnim`'s visibility: a spectator shows only its head (`showBody`), and the
@@ -998,29 +999,47 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
 
     let result = rustanim::PlayerPoseResult::evaluate(&anim_input);
 
-    // Apply evaluated kinematics to Horizon model part poses
-    let body = p.get("body");
-    body[0] = result.body.translation[0];
-    body[1] = result.body.translation[1];
-    body[2] = result.body.translation[2];
-    body[3] = result.body.rotation[0];
-    body[4] = result.body.rotation[1];
-    body[5] = result.body.rotation[2];
+    // Bedrock to Java ModelPart transformation math:
+    // Bedrock rotates the body around the hips at (0, 12, 0).
+    // Java ModelPart rotates the body around the neck at (0, 0, 0).
+    // To hinge the Java body at (0, 12, 0), translate the neck by:
+    // delta_neck = (0, 12, 0) - R * (0, 12, 0)
+    let rx = result.body.rotation[0];
+    let ry = result.body.rotation[1];
+    let rz = result.body.rotation[2];
 
+    let hip_delta_y = 12.0 - (12.0 * rz.cos() * rx.cos());
+    let hip_delta_z = -12.0 * rx.sin();
+    let hip_delta_x = 12.0 * rz.sin();
+
+    // Bedrock bounce (Y-up): positive moves UP, so in Java (+Y down) it is SUBTRACTED
+    let waist_dy = -result.body.translation[1];
+    let waist_dz = result.body.translation[2];
+    let waist_dx = -result.body.translation[0];
+
+    // 1. Body: hips stay anchored at Y=12.0
+    let body = p.get("body");
+    body[0] = waist_dx + hip_delta_x;
+    body[1] = waist_dy + hip_delta_y;
+    body[2] = waist_dz + hip_delta_z;
+    body[3] = rx;
+    body[4] = ry;
+    body[5] = rz;
+
+    // 2. Head follows neck
     let head = p.get("head");
-    head[0] = result.head.translation[0];
-    head[1] = result.head.translation[1];
-    head[2] = result.head.translation[2];
+    head[0] = body[0];
+    head[1] = body[1];
+    head[2] = body[2];
     head[3] = result.head.rotation[0];
     head[4] = result.head.rotation[1];
     head[5] = result.head.rotation[2];
 
-    // Right arm
+    // 3. Right arm follows shoulder: shoulder base is (-5.0, 2.0, 0.0)
     let right_arm = p.get("right_arm");
-    right_arm[0] = result.right_arm.translation[0];
-    right_arm[1] = result.right_arm.translation[1];
-    right_arm[2] = result.right_arm.translation[2];
-    // Keep specialized weapon poses if active (bow, crossbow, blocking, trident)
+    right_arm[0] = -5.0 + waist_dx + hip_delta_x;
+    right_arm[1] = 2.0 + waist_dy + hip_delta_y;
+    right_arm[2] = waist_dz + hip_delta_z;
     if !matches!(
         h.right,
         ArmPose::Bow
@@ -1034,11 +1053,11 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
         right_arm[5] = result.right_arm.rotation[2];
     }
 
-    // Left arm
+    // 4. Left arm follows shoulder: shoulder base is (5.0, 2.0, 0.0)
     let left_arm = p.get("left_arm");
-    left_arm[0] = result.left_arm.translation[0];
-    left_arm[1] = result.left_arm.translation[1];
-    left_arm[2] = result.left_arm.translation[2];
+    left_arm[0] = 5.0 + waist_dx + hip_delta_x;
+    left_arm[1] = 2.0 + waist_dy + hip_delta_y;
+    left_arm[2] = waist_dz + hip_delta_z;
     if !matches!(
         h.left,
         ArmPose::Bow
@@ -1052,23 +1071,92 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
         left_arm[5] = result.left_arm.rotation[2];
     }
 
-    // Right leg
+    // 5. Right leg attaches to hips: base is (-1.9, 12.0, 0.0)
     let right_leg = p.get("right_leg");
-    right_leg[0] = result.right_leg.translation[0];
-    right_leg[1] = result.right_leg.translation[1];
-    right_leg[2] = result.right_leg.translation[2];
+    right_leg[0] = -1.9 + waist_dx;
+    right_leg[1] = 12.0 + waist_dy - (result.right_leg.translation[1] - 12.0).max(-3.0).min(3.0);
+    right_leg[2] = waist_dz + result.right_leg.translation[2];
     right_leg[3] = result.right_leg.rotation[0];
     right_leg[4] = result.right_leg.rotation[1];
     right_leg[5] = result.right_leg.rotation[2];
 
-    // Left leg
+    // 6. Left leg attaches to hips: base is (1.9, 12.0, 0.0)
     let left_leg = p.get("left_leg");
-    left_leg[0] = result.left_leg.translation[0];
-    left_leg[1] = result.left_leg.translation[1];
-    left_leg[2] = result.left_leg.translation[2];
+    left_leg[0] = 1.9 + waist_dx;
+    left_leg[1] = 12.0 + waist_dy - (result.left_leg.translation[1] - 12.0).max(-3.0).min(3.0);
+    left_leg[2] = waist_dz + result.left_leg.translation[2];
     left_leg[3] = result.left_leg.rotation[0];
     left_leg[4] = result.left_leg.rotation[1];
     left_leg[5] = result.left_leg.rotation[2];
+}
+
+/// Applies authentic Bedrock Actions & Stuff animations to mobs
+pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
+    if m.is_player() {
+        return;
+    }
+    let phi = s.pos * 0.6662;
+    let sp = s.speed.min(1.0);
+    let age = s.age;
+
+    match m.kind.anim {
+        Anim::Zombie
+        | Anim::Drowned
+        | Anim::ZombieVillager
+        | Anim::ZombifiedPiglin
+        | Anim::Humanoid { zombie_arms: true } => {
+            // Authentic Actions & Stuff shambling zombie walk:
+            let sway = (phi * 0.5).sin() * 0.12 * sp;
+            let droop = (age * 0.08).sin() * 0.05;
+            p.zrot("body", sway);
+            p.xrot("body", 0.15 * sp); // hunched shamble
+            p.zrot("head", -sway * 0.8);
+            p.xrot("right_arm", -1.45 + (phi).cos() * 0.25 * sp + droop);
+            p.xrot("left_arm", -1.45 - (phi).cos() * 0.25 * sp - droop);
+            p.yrot("right_arm", 0.1 + sway);
+            p.yrot("left_arm", -0.1 + sway);
+        }
+        Anim::Skeleton | Anim::Humanoid { zombie_arms: false } => {
+            // Stiff rattling clatter gait
+            let rattle = (age * 0.35).sin() * 0.04;
+            p.yrot("body", (phi).cos() * 0.08 * sp);
+            p.zrot("head", rattle);
+        }
+        Anim::Creeper => {
+            // Menacing creeping scuttle
+            p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).cos() * 0.08 * sp);
+            p.yrot("head", s.y_rot.to_radians() + (phi).sin() * 0.12 * sp);
+            p.zrot("body", (phi).sin() * 0.04 * sp);
+            p.xrot("right_hind_leg", (phi).cos() * 1.2 * sp);
+            p.xrot("left_hind_leg", -(phi).cos() * 1.2 * sp);
+            p.xrot("right_front_leg", -(phi).cos() * 1.2 * sp);
+            p.xrot("left_front_leg", (phi).cos() * 1.2 * sp);
+        }
+        Anim::Quadruped | Anim::PolarBear | Anim::Panda | Anim::Goat => {
+            // Bouncy expressive animal trot
+            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp;
+            p.xrot("body", (phi * 2.0).cos() * 0.08 * sp);
+            p.zrot("body", (phi).sin() * 0.06 * sp);
+            p.get("body")[1] += -bounce * 1.5;
+            p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).sin() * 0.12 * sp);
+        }
+        Anim::Sheep => {
+            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp;
+            p.xrot("body", (phi * 2.0).cos() * 0.08 * sp);
+            p.zrot("body", (phi).sin() * 0.06 * sp);
+            p.get("body")[1] += -bounce * 1.5;
+        }
+        Anim::Chicken => {
+            let ch_phi = s.pos * 1.4;
+            p.xrot("head", (ch_phi * 2.0).sin() * 0.25 * sp);
+            p.zrot("body", (ch_phi).sin() * 0.12 * sp);
+        }
+        Anim::Spider => {
+            let bob = (phi * 2.0).sin().abs() * 0.12 * sp;
+            p.get("body")[1] += -bob * 1.2;
+        }
+        _ => {}
+    }
 }
 #[cfg(test)]
 mod flight_pose_tests {
