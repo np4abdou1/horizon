@@ -1622,16 +1622,69 @@ fn render_visible(
             }
         });
         if body_visible && let Some(uv) = uv {
-            draw(
-                &model,
-                base,
-                &poses,
-                uv,
-                body_color(m, alpha),
-                light,
-                body_overlay(m, alpha),
-                out,
-            );
+            let cfg = rustanim::get_live_config();
+            if avatar(m) && cfg.player_animations {
+                static BEDROCK_HUMANOID_WIDE: std::sync::OnceLock<rustanim::BedrockModel> =
+                    std::sync::OnceLock::new();
+                static BEDROCK_HUMANOID_SLIM: std::sync::OnceLock<rustanim::BedrockModel> =
+                    std::sync::OnceLock::new();
+                let bm = if m.slim {
+                    BEDROCK_HUMANOID_SLIM
+                        .get_or_init(|| rustanim::BedrockModel::new_bedrock_humanoid(true))
+                } else {
+                    BEDROCK_HUMANOID_WIDE
+                        .get_or_init(|| rustanim::BedrockModel::new_bedrock_humanoid(false))
+                };
+                let is_holding_main = m.extra.main_hand.is_some();
+                let is_holding_off = m.extra.off_hand.is_some();
+                let is_sprinting = m.extra.sprinting || s.speed > 0.85;
+                let anim_input = rustanim::PlayerAnimInput {
+                    age: s.age,
+                    pos: s.pos,
+                    speed: if is_sprinting { 1.2 } else { s.speed },
+                    head_pitch_deg: s.x_rot,
+                    head_yaw_deg: s.y_rot,
+                    swing: s.swing,
+                    is_crouching: m.extra.crouching,
+                    is_holding_main,
+                    is_holding_off,
+                    is_swing_right: true,
+                    is_fall_flying: m.extra.fall_flying,
+                };
+                let mut bverts = Vec::new();
+                bm.generate_bedrock_player_mesh(&anim_input, &cfg, base, uv, &mut bverts);
+                let col = body_color(m, alpha);
+                let over = body_overlay(m, alpha);
+                for bv in bverts {
+                    let n = bv.normal;
+                    let packed_normal = [
+                        (n[0].clamp(-1.0, 1.0) * 127.0) as i8,
+                        (n[1].clamp(-1.0, 1.0) * 127.0) as i8,
+                        (n[2].clamp(-1.0, 1.0) * 127.0) as i8,
+                        -127,
+                    ];
+                    out.push(Vertex {
+                        normal: packed_normal,
+                        pos: bv.pos,
+                        uv: bv.uv,
+                        layer: over,
+                        color: col,
+                        light,
+                        glint_uv: [0.0, 0.0],
+                    });
+                }
+            } else {
+                draw(
+                    &model,
+                    base,
+                    &poses,
+                    uv,
+                    body_color(m, alpha),
+                    light,
+                    body_overlay(m, alpha),
+                    out,
+                );
+            }
         }
     };
     // The translucent shell writes depth: draw the opaque core before it.

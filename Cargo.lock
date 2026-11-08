@@ -965,18 +965,12 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "779ae4bf7e8421cf91c0b3b64e7e8b40b862fba4d393f59150042de7c4965a94"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "glam"
 version = "0.30.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19fc433e8437a212d1b6f1e68c7824af3aed907da60afa994e7f542d18d12aa9"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "glow"
@@ -1138,7 +1132,7 @@ dependencies = [
  "flate2",
  "fs4",
  "gilrs",
- "glam 0.30.10",
+ "glam",
  "horizon-anticheat",
  "horizon-assets",
  "horizon-bench",
@@ -1210,7 +1204,7 @@ dependencies = [
  "chrono",
  "cpal",
  "flate2",
- "glam 0.30.10",
+ "glam",
  "horizon-assets",
  "horizon-bench",
  "horizon-client-core",
@@ -2847,9 +2841,9 @@ dependencies = [
 [[package]]
 name = "rustanim"
 version = "0.1.0"
-source = "git+https://github.com/np4abdou1/rustanim.git?rev=cce7df9d17cbe23acf58ecbb3aee6f6ce0105f77#cce7df9d17cbe23acf58ecbb3aee6f6ce0105f77"
+source = "git+https://github.com/np4abdou1/rustanim.git?rev=e56d273c7adda702607deb642d7aced2b255983f#e56d273c7adda702607deb642d7aced2b255983f"
 dependencies = [
- "glam 0.28.0",
+ "glam",
  "serde",
  "serde_json",
  "smallvec",
