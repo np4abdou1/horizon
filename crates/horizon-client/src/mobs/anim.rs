@@ -1003,51 +1003,29 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
 
     let result = rustanim::PlayerPoseResult::evaluate(&anim_input);
 
-    // Bedrock to Java ModelPart transformation math:
-    // Bedrock rotates the body around the hips at (0, 12, 0).
-    // Java ModelPart rotates the body around the neck at (0, 0, 0).
-    // To hinge the Java body at (0, 12, 0), translate the neck by:
-    // delta_neck = (0, 12, 0) - R * (0, 12, 0)
-    let rx = result.body.rotation[0];
-    let ry = result.body.rotation[1];
-    let rz = result.body.rotation[2];
-
-    let hip_delta_y = 12.0 - (12.0 * rz.cos() * rx.cos());
-    let hip_delta_z = -12.0 * rx.sin();
-    let hip_delta_x = 12.0 * rz.sin();
-
-    // Bedrock bounce (Y-up): positive moves UP, so in Java (+Y down) it is SUBTRACTED
-    let waist_dy = -result.body.translation[1];
-    let waist_dz = result.body.translation[2];
-    let waist_dx = -result.body.translation[0];
-
-    let body_tx = waist_dx + hip_delta_x;
-    let body_ty = waist_dy + hip_delta_y;
-    let body_tz = waist_dz + hip_delta_z;
-
-    // 1. Body: hips stay anchored at Y=12.0
+    // 1. Body
     let body = p.get("body");
-    body[0] = body_tx;
-    body[1] = body_ty;
-    body[2] = body_tz;
-    body[3] = rx;
-    body[4] = ry;
-    body[5] = rz;
+    body[0] = result.body.translation[0];
+    body[1] = result.body.translation[1];
+    body[2] = result.body.translation[2];
+    body[3] = result.body.rotation[0];
+    body[4] = result.body.rotation[1];
+    body[5] = result.body.rotation[2];
 
-    // 2. Head follows neck
+    // 2. Head
     let head = p.get("head");
-    head[0] = body_tx;
-    head[1] = body_ty;
-    head[2] = body_tz;
+    head[0] = result.head.translation[0];
+    head[1] = result.head.translation[1];
+    head[2] = result.head.translation[2];
     head[3] = result.head.rotation[0];
     head[4] = result.head.rotation[1];
     head[5] = result.head.rotation[2];
 
-    // 3. Right arm follows shoulder: shoulder base is (-5.0, 2.0, 0.0)
+    // 3. Right arm
     let right_arm = p.get("right_arm");
-    right_arm[0] = -5.0 + waist_dx + hip_delta_x;
-    right_arm[1] = 2.0 + waist_dy + hip_delta_y;
-    right_arm[2] = waist_dz + hip_delta_z;
+    right_arm[0] = result.right_arm.translation[0];
+    right_arm[1] = result.right_arm.translation[1];
+    right_arm[2] = result.right_arm.translation[2];
     if !matches!(
         h.right,
         ArmPose::Bow
@@ -1061,11 +1039,11 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
         right_arm[5] = result.right_arm.rotation[2];
     }
 
-    // 4. Left arm follows shoulder: shoulder base is (5.0, 2.0, 0.0)
+    // 4. Left arm
     let left_arm = p.get("left_arm");
-    left_arm[0] = 5.0 + waist_dx + hip_delta_x;
-    left_arm[1] = 2.0 + waist_dy + hip_delta_y;
-    left_arm[2] = waist_dz + hip_delta_z;
+    left_arm[0] = result.left_arm.translation[0];
+    left_arm[1] = result.left_arm.translation[1];
+    left_arm[2] = result.left_arm.translation[2];
     if !matches!(
         h.left,
         ArmPose::Bow
@@ -1079,20 +1057,20 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
         left_arm[5] = result.left_arm.rotation[2];
     }
 
-    // 5. Right leg attaches to hips: base is (-1.9, 12.0, 0.0)
+    // 5. Right leg
     let right_leg = p.get("right_leg");
-    right_leg[0] = -1.9 + waist_dx;
-    right_leg[1] = 12.0 + waist_dy - (result.right_leg.translation[1] - 12.0).max(-3.0).min(3.0);
-    right_leg[2] = waist_dz + result.right_leg.translation[2];
+    right_leg[0] = result.right_leg.translation[0];
+    right_leg[1] = result.right_leg.translation[1];
+    right_leg[2] = result.right_leg.translation[2];
     right_leg[3] = result.right_leg.rotation[0];
     right_leg[4] = result.right_leg.rotation[1];
     right_leg[5] = result.right_leg.rotation[2];
 
-    // 6. Left leg attaches to hips: base is (1.9, 12.0, 0.0)
+    // 6. Left leg
     let left_leg = p.get("left_leg");
-    left_leg[0] = 1.9 + waist_dx;
-    left_leg[1] = 12.0 + waist_dy - (result.left_leg.translation[1] - 12.0).max(-3.0).min(3.0);
-    left_leg[2] = waist_dz + result.left_leg.translation[2];
+    left_leg[0] = result.left_leg.translation[0];
+    left_leg[1] = result.left_leg.translation[1];
+    left_leg[2] = result.left_leg.translation[2];
     left_leg[3] = result.left_leg.rotation[0];
     left_leg[4] = result.left_leg.rotation[1];
     left_leg[5] = result.left_leg.rotation[2];
