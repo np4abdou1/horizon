@@ -524,17 +524,36 @@ impl Game<'_> {
     }
     /// Options > Mods lists the native mods: push yours.
     pub(super) fn native_mods(&mut self, mods: &mut Vec<NativeMod>) {
-        let _ = mods;
+        mods.push(NativeMod {
+            id: "actions_and_stuff".to_string(),
+            title: "Actions & Stuff 1.1.2".to_string(),
+            description: "Bedrock Actions & Stuff relative kinematics, animations & live hot-reload".to_string(),
+            keys: Vec::new(),
+        });
     }
     /// The buttons of mod `mod_id`'s settings page, under its keys: push
     /// their labels when it is yours. Asked again each time the page opens
     /// and after each click.
     pub(super) fn native_settings(&mut self, mod_id: &str, buttons: &mut Vec<String>) {
-        let _ = (mod_id, buttons);
+        if mod_id == "actions_and_stuff" {
+            let cfg = rustanim::get_live_config();
+            buttons.push(if cfg.enabled { "Mod: Enabled".to_string() } else { "Mod: Disabled".to_string() });
+            buttons.push(if cfg.player_animations { "Player Animations: ON".to_string() } else { "Player Animations: OFF".to_string() });
+            buttons.push(if cfg.mob_animations { "Mob Animations: ON".to_string() } else { "Mob Animations: OFF".to_string() });
+        }
     }
     /// Button `button` of mod `mod_id`'s settings page was clicked.
     pub(super) fn native_settings_click(&mut self, mod_id: &str, button: usize) {
-        let _ = (mod_id, button);
+        if mod_id == "actions_and_stuff" {
+            let mut cfg = rustanim::get_live_config();
+            match button {
+                0 => cfg.enabled = !cfg.enabled,
+                1 => cfg.player_animations = !cfg.player_animations,
+                2 => cfg.mob_animations = !cfg.mob_animations,
+                _ => {}
+            }
+            let _ = rustanim::save_live_config(&cfg);
+        }
     }
     /// The player did `event` on mod `mod_id`'s panel (`native_panel_items`):
     /// act on it when it is yours. API 2.
