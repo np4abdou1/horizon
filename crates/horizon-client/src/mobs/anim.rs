@@ -1017,20 +1017,24 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
     let waist_dz = result.body.translation[2];
     let waist_dx = -result.body.translation[0];
 
+    let body_tx = waist_dx + hip_delta_x;
+    let body_ty = waist_dy + hip_delta_y;
+    let body_tz = waist_dz + hip_delta_z;
+
     // 1. Body: hips stay anchored at Y=12.0
     let body = p.get("body");
-    body[0] = waist_dx + hip_delta_x;
-    body[1] = waist_dy + hip_delta_y;
-    body[2] = waist_dz + hip_delta_z;
+    body[0] = body_tx;
+    body[1] = body_ty;
+    body[2] = body_tz;
     body[3] = rx;
     body[4] = ry;
     body[5] = rz;
 
     // 2. Head follows neck
     let head = p.get("head");
-    head[0] = body[0];
-    head[1] = body[1];
-    head[2] = body[2];
+    head[0] = body_tx;
+    head[1] = body_ty;
+    head[2] = body_tz;
     head[3] = result.head.rotation[0];
     head[4] = result.head.rotation[1];
     head[5] = result.head.rotation[2];
@@ -1092,7 +1096,9 @@ fn apply_rustanim_player(p: &mut Poses, s: &State, h: &Hum, m: &Mob) {
 
 /// Applies authentic Bedrock Actions & Stuff animations to mobs
 pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
-    if m.is_player() {
+    if matches!(m.kind.anim, Anim::Humanoid { .. })
+        || matches!(&*m.kind.id, "minecraft:player" | "minecraft:mannequin")
+    {
         return;
     }
     let phi = s.pos * 0.6662;
