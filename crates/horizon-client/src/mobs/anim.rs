@@ -1125,28 +1125,24 @@ pub fn apply_rustanim_mob(m: &Mob, s: &State, p: &mut Poses) {
             p.xrot("left_front_leg", (phi).cos() * 1.2 * sp);
         }
         Anim::Quadruped | Anim::PolarBear | Anim::Panda | Anim::Goat => {
-            // Bouncy expressive animal trot
-            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp * cfg.mob_quadruped_stride;
-            p.xrot("body", (phi * 2.0).cos() * 0.08 * sp);
-            p.zrot("body", (phi).sin() * 0.06 * sp);
-            p.get("body")[1] += -bounce * 1.5;
-            p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).sin() * 0.12 * sp);
+            // Authentic Actions & Stuff natural trot: clean pitch bob with zero roll or shear
+            let bob = (phi * 2.0).cos() * 0.05 * sp * cfg.mob_quadruped_stride;
+            p.xrot("body", bob);
+            p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).sin() * 0.08 * sp);
         }
         Anim::Sheep => {
-            let bounce = (phi * 2.0).cos().abs() * 0.15 * sp;
-            p.xrot("body", (phi * 2.0).cos() * 0.08 * sp);
-            p.zrot("body", (phi).sin() * 0.06 * sp);
-            p.get("body")[1] += -bounce * 1.5;
+            // Authentic Actions & Stuff sheep gait: pure pitch bob with zero yaw/roll shear
+            // Keeps wool layer, head, and body 100% aligned with no clipping or model glitches
+            let bob = (phi * 2.0).cos() * 0.05 * sp;
+            p.xrot("body", bob);
+            p.xrot("head", s.x_rot.to_radians() + (phi * 2.0).sin() * 0.08 * sp);
         }
         Anim::Chicken => {
             let ch_phi = s.pos * 1.4;
             p.xrot("head", (ch_phi * 2.0).sin() * 0.25 * sp);
             p.zrot("body", (ch_phi).sin() * 0.12 * sp);
         }
-        Anim::Spider => {
-            let bob = (phi * 2.0).sin().abs() * 0.12 * sp;
-            p.get("body")[1] += -bob * 1.2;
-        }
+        Anim::Spider => {}
         _ => {}
     }
 }
