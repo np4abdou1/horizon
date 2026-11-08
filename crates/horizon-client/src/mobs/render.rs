@@ -1612,23 +1612,32 @@ fn render_visible(
     let mut poses = Poses::new(&model);
     anim::setup(m, &s, &mut poses, &data.animations);
     let draw_body = |out: &mut Vec<Vertex>| {
-        // A player or mannequin whose skin has no atlas sprite (an evicted or
-        // never stored download) draws with its default skin, not invisibly.
-        let uv = atlas(&texture).or_else(|| {
-            if avatar(m) {
-                atlas(&m.kind.texture)
-            } else {
-                None
-            }
-        });
+        let cfg = rustanim::get_live_config();
+        // A player or mannequin whose skin has no atlas sprite draws with its default skin.
+        // Under Actions & Stuff animations, default to Alex (the girl model with pink backpack).
+        let uv = if avatar(m) && cfg.player_animations {
+            atlas(&texture)
+                .filter(|_| m.skin.is_some())
+                .or_else(|| atlas("entity/player/slim/alex"))
+                .or_else(|| atlas(&texture))
+                .or_else(|| atlas(&m.kind.texture))
+        } else {
+            atlas(&texture).or_else(|| {
+                if avatar(m) {
+                    atlas(&m.kind.texture)
+                } else {
+                    None
+                }
+            })
+        };
         if body_visible && let Some(uv) = uv {
-            let cfg = rustanim::get_live_config();
             if avatar(m) && cfg.player_animations {
                 static BEDROCK_HUMANOID_WIDE: std::sync::OnceLock<rustanim::BedrockModel> =
                     std::sync::OnceLock::new();
                 static BEDROCK_HUMANOID_SLIM: std::sync::OnceLock<rustanim::BedrockModel> =
                     std::sync::OnceLock::new();
-                let bm = if m.slim {
+                let is_slim = m.slim || m.skin.is_none();
+                let bm = if is_slim {
                     BEDROCK_HUMANOID_SLIM
                         .get_or_init(|| rustanim::BedrockModel::new_bedrock_humanoid(true))
                 } else {
