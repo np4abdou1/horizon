@@ -2847,7 +2847,7 @@ dependencies = [
 [[package]]
 name = "rustanim"
 version = "0.1.0"
-source = "git+https://github.com/np4abdou1/rustanim.git?rev=87d854f61db4149e3ab48dce06568b0153c5bbb6#87d854f61db4149e3ab48dce06568b0153c5bbb6"
+source = "git+https://github.com/np4abdou1/rustanim.git?rev=d10fad1d39065dbb965ac081c6f921a4d6c21249#d10fad1d39065dbb965ac081c6f921a4d6c21249"
 dependencies = [
  "glam 0.28.0",
  "serde",
